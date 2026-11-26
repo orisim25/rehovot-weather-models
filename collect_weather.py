@@ -1,182 +1,253 @@
-// תחליף לכתובת ה-Raw של הריפו שלך ב-GitHub
-const STATS_URL = "https://raw.githubusercontent.com/USERNAME/REPO/main/data/stats.json";
+import json
+import os
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+import urllib.request
 
-const LAT = 31.8928;
-const LON = 34.8113;
+TZ = ZoneInfo("Asia/Jerusalem")
+LAT, LON = 31.8928, 34.8113
+IMS_CITY_ID = "13"
 
-function getSunTime(date, lat, lon, isSunrise) {
-  const rad = Math.PI / 180;
-  const deg = 180 / Math.PI;
-  const start = new Date(date.getFullYear(), 0, 0);
-  const N = Math.floor((date - start) / 86400000);
-  const lngHour = lon / 15;
-  const t = N + (((isSunrise ? 6 : 18) - lngHour) / 24);
-  const M = (0.9856 * t) - 3.289;
-  let L = (M + (1.916 * Math.sin(M * rad)) + (0.020 * Math.sin(2 * M * rad)) + 282.634) % 360;
-  if (L < 0) L += 360;
-  let RA = (deg * Math.atan(0.91764 * Math.tan(L * rad))) % 360;
-  if (RA < 0) RA += 360;
-  RA = (RA + (Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90)) / 15;
-  const sinDec = 0.39782 * Math.sin(L * rad);
-  const cosDec = Math.cos(Math.asin(sinDec));
-  const cosH = (Math.cos(90.833 * rad) - (sinDec * Math.sin(lat * rad))) / (cosDec * Math.cos(lat * rad));
-  const H = (isSunrise ? (360 - deg * Math.acos(cosH)) : (deg * Math.acos(cosH))) / 15;
-  const T = H + RA - (0.06571 * t) - 6.622;
-  let UT = (T - lngHour) % 24;
-  if (UT < 0) UT += 24;
-  let local = (UT - (date.getTimezoneOffset() / 60)) % 24;
-  if (local < 0) local += 24;
-  const hh = Math.floor(local);
-  const mm = Math.round((local - hh) * 60);
-  return hh * 60 + mm;
+HISTORY_FILE = "data/history.json"
+STATS_FILE = "data/stats.json"
+MODELS = ["IMS", "ECMWF", "GFS", "ICON"]
+
+# ממוצע גשם חודשי רב-שנתי משוער ברחובות (סה"כ ~530 מ"מ בעונה)
+MONTHLY_AVG_MM = {
+    10: 25, 11: 75, 12: 130, 1: 140, 2: 100, 3: 45, 4: 15
 }
+SEASON_AVG_TOTAL = sum(MONTHLY_AVG_MM.values())
 
-function formatShortDate(dateStr) {
-  const d = new Date(dateStr + "T12:00:00");
-  const days = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-  return `יום ${days[d.getDay()]} (${d.getDate()}.${d.getMonth() + 1})`;
-}
 
-function drawSeasonBar(actual, expected, total) {
-  const w = 310, h = 10;
-  const dc = new DrawContext();
-  dc.size = new Size(w, h);
-  dc.opaque = false;
-  dc.respectScreenScale = true;
+def fetch_json(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=15) as res:
+        return json.loads(res.read().decode("utf-8"))
 
-  const track = new Path();
-  track.addRoundedRect(new Rect(0, 2, w, 6), 3, 3);
-  dc.addPath(track);
-  dc.setFillColor(new Color("#FFFFFF", 0.15));
-  dc.fillPath();
 
-  const actW = Math.min((actual / total) * w, w);
-  if (actW > 0) {
-    const fill = new Path();
-    fill.addRoundedRect(new Rect(0, 2, Math.max(actW, 6), 6), 3, 3);
-    dc.addPath(fill);
-    dc.setFillColor(new Color("#38BDF8"));
-    dc.fillPath();
-  }
+def get_ims_forecast():
+    res = fetch_json(f"https://ims.gov.il/he/forecast_data/{IMS_CITY_ID}")
+    data = res.get("data", {})
+    out = {}
+    for date_str, val in data.items():
+        if len(date_str) != 10:
+            continue
+        daily = val.get("daily", val)
+        hourly = val.get("hourly", {})
+        total_mm = float(daily.get("rain") or 0)
+        if total_mm == 0 and isinstance(hourly, dict):
+            total_mm = sum(float(h.get("rain") or 0) for h in hourly.values())
+        out[date_str] = round(total_mm, 2)
+    return out
 
-  // סימון הממוצע הצפוי עד היום
-  const expX = Math.min(Math.max((expected / total) * w, 2), w - 2);
-  const marker = new Path();
-  marker.move(new Point(expX, 0));
-  marker.addLine(new Point(expX, h));
-  dc.addPath(marker);
-  dc.setStrokeColor(new Color("#FFD166"));
-  dc.setLineWidth(2);
-  dc.strokePath();
 
-  return dc.getImage();
-}
+def get_open_meteo_forecasts():
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={LAT}&longitude={LON}"
+        f"&daily=precipitation_sum"
+        f"&models=ecmwf_ifs025,gfs_seamless,icon_seamless"
+        f"&timezone=Asia%2FJerusalem&forecast_days=7"
+    )
+    res = fetch_json(url)
+    daily = res.get("daily", {})
+    dates = daily.get("time", [])
 
-const now = new Date();
-const mins = now.getHours() * 60 + now.getMinutes();
-const isNight = mins < getSunTime(now, LAT, LON, true) || mins >= getSunTime(now, LAT, LON, false);
+    mapping = {
+        "ECMWF": "precipitation_sum_ecmwf_ifs025",
+        "GFS": "precipitation_sum_gfs_seamless",
+        "ICON": "precipitation_sum_icon_seamless",
+    }
 
-let data = null;
-try {
-  const req = new Request(STATS_URL);
-  req.timeoutInterval = 10;
-  data = await req.loadJSON();
-} catch (e) {}
+    out = {m: {} for m in mapping}
+    for i, d in enumerate(dates):
+        for model_name, key in mapping.items():
+            vals = daily.get(key, [])
+            if i < len(vals) and vals[i] is not None:
+                out[model_name][d] = round(float(vals[i]), 2)
+    return out
 
-const widget = new ListWidget();
-widget.setPadding(10, 14, 10, 14);
-const grad = new LinearGradient();
-grad.locations = [0, 1];
-grad.colors = isNight
-  ? [new Color("#141E30"), new Color("#243B55")]
-  : [new Color("#1E62B0"), new Color("#4A90E2")];
-widget.backgroundGradient = grad;
 
-if (!data) {
-  const err = widget.addText("ממתין לנתוני stats.json מ-GitHub...");
-  err.font = Font.mediumSystemFont(12);
-  err.textColor = Color.white();
-} else {
-  const focus = data.focus_day;
-  const dis = focus.disagreement;
-  const badgeColor = dis.level === "high" ? "#EF4444" : dis.level === "med" ? "#F59E0B" : "#10B981";
+def get_actual_rain_yesterday(yesterday_str):
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={LAT}&longitude={LON}"
+        f"&daily=precipitation_sum&past_days=2&forecast_days=1"
+        f"&timezone=Asia%2FJerusalem"
+    )
+    res = fetch_json(url)
+    daily = res.get("daily", {})
+    dates = daily.get("time", [])
+    rains = daily.get("precipitation_sum", [])
+    if yesterday_str in dates:
+        idx = dates.index(yesterday_str)
+        if rains[idx] is not None:
+            return round(float(rains[idx]), 2)
+    return None
 
-  // 1. כותרת: המודל של רחובות + מדד אי-ההסכמה
-  const top = widget.addStack();
-  top.layoutHorizontally();
-  top.centerAlignContent();
 
-  const pill = top.addStack();
-  pill.backgroundColor = new Color(badgeColor, 0.9);
-  pill.cornerRadius = 5;
-  pill.setPadding(2, 6, 2, 6);
-  const pillTxt = pill.addText(dis.label);
-  pillTxt.font = Font.boldSystemFont(9.5);
-  pillTxt.textColor = Color.white();
+def expected_season_avg_to_date(now):
+    # מחשב כמה מ"מ בממוצע אמורים לרדת עד התאריך הנוכחי בעונת הגשם (אוקטובר-אפריל)
+    order = [10, 11, 12, 1, 2, 3, 4]
+    m = now.month
+    if m in (5, 6, 7, 8, 9):
+        return SEASON_AVG_TOTAL if m <= 8 else 0.0
+    total = 0.0
+    for mo in order:
+        if mo == m:
+            total += MONTHLY_AVG_MM[mo] * (now.day / 30.0)
+            break
+        total += MONTHLY_AVG_MM[mo]
+    return round(total, 1)
 
-  top.addSpacer();
 
-  const title = top.addText(`מודל רחובות: ${focus.rehovot_model_mm} מ״מ • ${formatShortDate(focus.date)}`);
-  title.font = Font.boldSystemFont(12);
-  title.textColor = Color.white();
+def get_personality(bias_pct, rainy_days):
+    if rainy_days < 3:
+        return "מתחמם"
+    if bias_pct > 20:
+        return "מגזים"
+    if bias_pct < -20:
+        return "שמרן"
+    return "צלף"
 
-  widget.addSpacer(6);
 
-  // 2. ליגת האלופות + אישיות + תחזית ליום הקרוב (4 עמודות)
-  const grid = widget.addStack();
-  grid.layoutHorizontally();
+def get_disagreement(values):
+    if not values or max(values) < 0.5:
+        return {"level": "low", "label": "יבש • קונסנזוס"}
+    spread = max(values) - min(values)
+    avg = sum(values) / len(values)
+    ratio = spread / max(avg, 1.0)
+    if spread >= 8 or ratio >= 1.2:
+        return {"level": "high", "label": "קרב פתוח"}
+    if spread >= 3 or ratio >= 0.6:
+        return {"level": "med", "label": "מחלוקת"}
+    return {"level": "low", "label": "קונסנזוס"}
 
-  data.leaderboard.forEach((m, idx) => {
-    const col = grid.addStack();
-    col.layoutVertically();
-    col.centerAlignContent();
-    col.spacing = 2;
-    col.setPadding(4, 4, 4, 4);
-    col.cornerRadius = 7;
-    col.backgroundColor = new Color("#FFFFFF", idx === 0 ? 0.16 : 0.07);
 
-    const name = col.addText(idx === 0 ? `🏆 ${m.model}` : m.model);
-    name.font = Font.boldSystemFont(10.5);
-    name.textColor = Color.white();
+def main():
+    os.makedirs("data", exist_ok=True)
+    history = {}
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            history = json.load(f)
 
-    const predMm = focus.models[m.model] ?? 0;
-    const mmTxt = col.addText(`${predMm.toFixed(1)} מ״מ`);
-    mmTxt.font = Font.boldSystemFont(11);
-    mmTxt.textColor = predMm > 0 ? new Color("#38BDF8") : new Color("#FFFFFF", 0.7);
+    now = datetime.now(TZ)
+    yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    const meta = col.addText(`${m.points} נק׳ • ${m.personality}`);
-    meta.font = Font.mediumSystemFont(8.5);
-    meta.textColor = new Color("#FFFFFF", 0.78);
+    forecasts = {"IMS": get_ims_forecast()}
+    forecasts.update(get_open_meteo_forecasts())
 
-    if (idx < data.leaderboard.length - 1) grid.addSpacer(5);
-  });
+    # שמירת Snapshots ל-24 שעות ו-72 שעות מראש
+    for lead_days in (1, 3):
+        target_date = (now + timedelta(days=lead_days)).strftime("%Y-%m-%d")
+        lead_key = f"lead_{lead_days}d"
+        history.setdefault(target_date, {"actual": None, "snapshots": {}})
+        history[target_date]["snapshots"].setdefault(lead_key, {})
+        for m in MODELS:
+            if target_date in forecasts.get(m, {}):
+                history[target_date]["snapshots"][lead_key][m] = forecasts[m][target_date]
 
-  widget.addSpacer(8);
+    actual_yest = get_actual_rain_yesterday(yesterday_str)
+    if actual_yest is not None:
+        history.setdefault(yesterday_str, {"actual": None, "snapshots": {}})
+        history[yesterday_str]["actual"] = actual_yest
 
-  // 3. מרוץ הגשם העונתי ברחובות
-  const s = data.season;
-  const sHeader = widget.addStack();
-  sHeader.layoutHorizontally();
-  sHeader.centerAlignContent();
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
 
-  const sRight = sHeader.addText(`ממוצע להיום: ${s.expected_to_date_mm} מ״מ`);
-  sRight.font = Font.mediumSystemFont(9.5);
-  sRight.textColor = new Color("#FFD166");
+    # חישוב ליגת האלופות + אישיות + משקולות למודל של רחובות
+    stats_m = {
+        m: {"points": 0, "errors": [], "pred_sum": 0.0, "actual_sum": 0.0, "rainy_days": 0}
+        for m in MODELS
+    }
+    season_rain = 0.0
 
-  sHeader.addSpacer();
+    for d_str, entry in sorted(history.items()):
+        actual = entry.get("actual")
+        if actual is None:
+            continue
+        season_rain += actual
+        snap = entry.get("snapshots", {}).get("lead_1d", {})
+        if not snap:
+            continue
 
-  const sLeft = sHeader.addText(`מרוץ הגשם: ${s.actual_mm} / ${s.annual_avg_mm} מ״מ (${s.pct_of_annual}%)`);
-  sLeft.font = Font.semiboldSystemFont(10);
-  sLeft.textColor = Color.white();
+        day_errs = {}
+        for m in MODELS:
+            if m in snap:
+                pred = snap[m]
+                err = abs(pred - actual)
+                stats_m[m]["errors"].append(err)
+                day_errs[m] = err
+                if actual >= 1.0 or pred >= 1.0:
+                    stats_m[m]["pred_sum"] += pred
+                    stats_m[m]["actual_sum"] += actual
+                    stats_m[m]["rainy_days"] += 1
 
-  widget.addSpacer(4);
-  const barImg = drawSeasonBar(s.actual_mm, s.expected_to_date_mm, s.annual_avg_mm);
-  const barEl = widget.addImage(barImg);
-  barEl.resizable = true;
-}
+        # חלוקת נקודות בימי גשם (>= 1 מ"מ בפועל או בתחזית ממוצעת)
+        if actual >= 1.0 and len(day_errs) >= 2:
+            ranked = sorted(day_errs.items(), key=lambda x: x[1])
+            stats_m[ranked[0][0]]["points"] += 3
+            stats_m[ranked[1][0]]["points"] += 1
 
-Script.setWidget(widget);
-if (!config.runsInWidget) {
-  await widget.presentMedium();
-}
-Script.complete();
+    # בניית טבלת הליגה וחישוב משקולות
+    leaderboard = []
+    weights = {}
+    for m in MODELS:
+        s = stats_m[m]
+        mae = round(sum(s["errors"]) / len(s["errors"]), 2) if s["errors"] else None
+        bias_pct = 0.0
+        if s["actual_sum"] > 0:
+            bias_pct = round(((s["pred_sum"] - s["actual_sum"]) / s["actual_sum"]) * 100)
+        personality = get_personality(bias_pct, s["rainy_days"])
+
+        # משקל גבוה יותר לשגיאה נמוכה יותר (Inverse MAE)
+        weights[m] = (1.0 / (mae + 0.5)) if (mae is not None and s["rainy_days"] >= 3) else 1.0
+
+        leaderboard.append({
+            "model": m,
+            "points": s["points"],
+            "mae_mm": mae,
+            "bias_pct": bias_pct,
+            "personality": personality
+        })
+
+    leaderboard.sort(key=lambda x: (-x["points"], x["mae_mm"] if x["mae_mm"] is not None else 999))
+
+    w_sum = sum(weights.values())
+    norm_weights = {m: weights[m] / w_sum for m in MODELS}
+
+    # מציאת היום הגשום הקרוב ביותר (מתוך 5 הימים הקרובים)
+    focus_day = None
+    for i in range(5):
+        d_str = (now + timedelta(days=i)).strftime("%Y-%m-%d")
+        vals = {m: forecasts.get(m, {}).get(d_str, 0.0) for m in MODELS}
+        rehovot_mm = round(sum(vals[m] * norm_weights[m] for m in MODELS), 1)
+        day_obj = {
+            "date": d_str,
+            "models": vals,
+            "rehovot_model_mm": rehovot_mm,
+            "disagreement": get_disagreement(list(vals.values()))
+        }
+        if focus_day is None or (max(vals.values()) >= 0.5 and max(focus_day["models"].values()) < 0.5):
+            focus_day = day_obj
+
+    expected_to_date = expected_season_avg_to_date(now)
+
+    stats = {
+        "updated_at": now.strftime("%Y-%m-%d %H:%M"),
+        "focus_day": focus_day,
+        "leaderboard": leaderboard,
+        "season": {
+            "actual_mm": round(season_rain, 1),
+            "expected_to_date_mm": expected_to_date,
+            "annual_avg_mm": SEASON_AVG_TOTAL,
+            "pct_of_annual": round((season_rain / SEASON_AVG_TOTAL) * 100)
+        }
+    }
+
+    with open(STATS_FILE, "w", encoding="utf-8") as f:
+        json.dump(stats, f, ensure_ascii=False, indent=2)
+
+
+if __name__ == "__main__":
+    main()
