@@ -1,0 +1,80 @@
+{
+  "station": "Weizmann Institute (a108)",
+  "method": "WMO Skill Score (60% 1d + 40% 3d): Rain=CSI+RMSLE, Temp/Wind=cRMSE vs Persistence",
+  "period": {
+    "start": "2025-10-01",
+    "end": "2026-11-25",
+    "days": 397
+  },
+  "leaders": {
+    "overall": "ICON",
+    "rain": "GFS",
+    "temp": "ECMWF",
+    "wind": "ICON"
+  },
+  "models": {
+    "ECMWF": {
+      "days_evaluated": 396,
+      "overall_score": 35.8,
+      "rain": {
+        "score": 42.4,
+        "csi_1d": 49.2,
+        "csi_3d": 45.0,
+        "rmsle_1d": 0.485,
+        "rmsle_3d": 0.501
+      },
+      "temp": {
+        "score": 41.6,
+        "rmse_1d_c": 1.48,
+        "rmse_3d_c": 1.63
+      },
+      "wind": {
+        "score": 10.9,
+        "rmse_1d_kmh": 1.94,
+        "rmse_3d_kmh": 1.87
+      }
+    },
+    "GFS": {
+      "days_evaluated": 396,
+      "overall_score": 36.7,
+      "rain": {
+        "score": 50.0,
+        "csi_1d": 57.9,
+        "csi_3d": 49.1,
+        "rmsle_1d": 0.416,
+        "rmsle_3d": 0.451
+      },
+      "temp": {
+        "score": 40.7,
+        "rmse_1d_c": 1.47,
+        "rmse_3d_c": 1.66
+      },
+      "wind": {
+        "score": 0.0,
+        "rmse_1d_kmh": 2.92,
+        "rmse_3d_kmh": 2.97
+      }
+    },
+    "ICON": {
+      "days_evaluated": 396,
+      "overall_score": 43.7,
+      "rain": {
+        "score": 49.7,
+        "csi_1d": 54.3,
+        "csi_3d": 54.2,
+        "rmsle_1d": 0.439,
+        "rmsle_3d": 0.422
+      },
+      "temp": {
+        "score": 40.5,
+        "rmse_1d_c": 1.48,
+        "rmse_3d_c": 1.67
+      },
+      "wind": {
+        "score": 35.6,
+        "rmse_1d_kmh": 1.4,
+        "rmse_3d_kmh": 1.37
+      }
+    }
+  }
+}
