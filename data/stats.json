@@ -1,0 +1,53 @@
+{
+  "updated_at": "2026-11-26 12:18",
+  "focus_day": {
+    "date": "2026-11-29",
+    "models": {
+      "IMS": 0.0,
+      "ECMWF": 0.2,
+      "GFS": 0.3,
+      "ICON": 0.6
+    },
+    "rehovot_model_mm": 0.3,
+    "disagreement": {
+      "level": "med",
+      "label": "מחלוקת"
+    }
+  },
+  "leaderboard": [
+    {
+      "model": "IMS",
+      "points": 0,
+      "mae_mm": null,
+      "bias_pct": 0.0,
+      "personality": "מתחמם"
+    },
+    {
+      "model": "ECMWF",
+      "points": 0,
+      "mae_mm": null,
+      "bias_pct": 0.0,
+      "personality": "מתחמם"
+    },
+    {
+      "model": "GFS",
+      "points": 0,
+      "mae_mm": null,
+      "bias_pct": 0.0,
+      "personality": "מתחמם"
+    },
+    {
+      "model": "ICON",
+      "points": 0,
+      "mae_mm": null,
+      "bias_pct": 0.0,
+      "personality": "מתחמם"
+    }
+  ],
+  "season": {
+    "actual_mm": 0.0,
+    "expected_to_date_mm": 90.0,
+    "annual_avg_mm": 530,
+    "pct_of_annual": 0
+  }
+}

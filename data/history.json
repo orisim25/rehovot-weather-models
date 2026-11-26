@@ -1,0 +1,28 @@
+{
+  "2026-11-27": {
+    "actual": null,
+    "snapshots": {
+      "lead_1d": {
+        "IMS": 0.0,
+        "ECMWF": 0.0,
+        "GFS": 0.0,
+        "ICON": 0.0
+      }
+    }
+  },
+  "2026-11-29": {
+    "actual": null,
+    "snapshots": {
+      "lead_3d": {
+        "IMS": 0.0,
+        "ECMWF": 0.2,
+        "GFS": 0.3,
+        "ICON": 0.6
+      }
+    }
+  },
+  "2026-11-25": {
+    "actual": 0.0,
+    "snapshots": {}
+  }
+}
