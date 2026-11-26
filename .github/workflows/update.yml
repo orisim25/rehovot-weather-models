@@ -1,0 +1,26 @@
+name: Update Rehovot Weather Models
+
+on:
+  schedule:
+    - cron: '0 5,17 * * *' # 07:00 ו-19:00 שעון חורף בישראל
+  workflow_dispatch:       # מאפשר להריץ ידנית בלחיצת כפתור
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python collect_weather.py
+      - name: Commit updated stats
+        run: |
+          git config user.name "Weather Bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "Update weather stats"
+          git push
