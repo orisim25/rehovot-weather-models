@@ -1,0 +1,41 @@
+{
+  "updated_at": "2026-11-26",
+  "station": "מכון ויצמן (a108)",
+  "leaders": {
+    "overall": "ICON",
+    "rain": "GFS",
+    "temp": "ECMWF",
+    "wind": "ICON"
+  },
+  "models": {
+    "ECMWF": {
+      "status": "active",
+      "days": 396,
+      "overall": 35.8,
+      "rain": 42.4,
+      "temp": 41.6,
+      "wind": 10.9
+    },
+    "GFS": {
+      "status": "active",
+      "days": 396,
+      "overall": 36.7,
+      "rain": 50.0,
+      "temp": 40.7,
+      "wind": 0.0
+    },
+    "ICON": {
+      "status": "active",
+      "days": 396,
+      "overall": 43.7,
+      "rain": 49.7,
+      "temp": 40.5,
+      "wind": 35.6
+    },
+    "IMS": {
+      "status": "collecting",
+      "days": 0,
+      "min_days": 14
+    }
+  }
+}
