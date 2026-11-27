@@ -78,5 +78,85 @@
         }
       }
     }
+  },
+  "2026-11-26": {
+    "obs": {
+      "rain": 0.0,
+      "tmax": 25.7,
+      "tmin": 9.02,
+      "wind_avg": 5.34
+    }
+  },
+  "2026-11-28": {
+    "forecasts": {
+      "ECMWF": {
+        "1d": {
+          "rain": 0.0,
+          "tmax": 23.5,
+          "tmin": 15.7,
+          "wind_avg": 4.9
+        }
+      },
+      "GFS": {
+        "1d": {
+          "rain": 0.0,
+          "tmax": 25.0,
+          "tmin": 17.3,
+          "wind_avg": 7.0
+        }
+      },
+      "ICON": {
+        "1d": {
+          "rain": 0.0,
+          "tmax": 24.5,
+          "tmin": 12.7,
+          "wind_avg": 4.2
+        }
+      },
+      "IMS": {
+        "1d": {
+          "rain": 0.0,
+          "tmax": 24.0,
+          "tmin": 13.0,
+          "wind_avg": 4.67
+        }
+      }
+    }
+  },
+  "2026-11-30": {
+    "forecasts": {
+      "ECMWF": {
+        "3d": {
+          "rain": 2.1,
+          "tmax": 24.3,
+          "tmin": 10.7,
+          "wind_avg": 8.2
+        }
+      },
+      "GFS": {
+        "3d": {
+          "rain": 1.7,
+          "tmax": 24.4,
+          "tmin": 15.3,
+          "wind_avg": 10.8
+        }
+      },
+      "ICON": {
+        "3d": {
+          "rain": 0.9,
+          "tmax": 27.2,
+          "tmin": 11.5,
+          "wind_avg": 7.1
+        }
+      },
+      "IMS": {
+        "3d": {
+          "rain": 0.31,
+          "tmax": 25.0,
+          "tmin": 14.0,
+          "wind_avg": 4.29
+        }
+      }
+    }
   }
 }
