@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-27",
+  "updated_at": "2026-11-28",
   "station": "מכון ויצמן (a108)",
   "leaders": {
     "overall": "ICON",
@@ -34,7 +34,7 @@
     },
     "IMS": {
       "status": "collecting",
-      "days": 0,
+      "days": 1,
       "min_days": 14
     }
   }
